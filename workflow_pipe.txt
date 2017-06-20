@@ -1,0 +1,41 @@
+------------------------------------------------------------------------------
+--------------- Preparing physiological regressors ---------------------------
+------------------------------------------------------------------------------
+# BIOPAC will write out ".acq" files, which cannot be read by fsl. Hence#
+# the following is run.							#
+
+acq2txt <BIOPAC.acq> > <BIOPAC.txt>
+
+# Open the biopac file in a text editor, and delete the string headers. #
+# This could be included in a script, but may be more trouble than it's #
+# worth.								#
+# In order to have usable physio regressors, we need to further edit the#
+# BIOPAC.txt file; sampling traces, putting them into individual files, #
+# etc. This is here done with "edit_biopac.py"				#
+
+python edit_biopac.py input = <biopac txt file>
+
+# At this point, the physio regressors should be ready to be fed into 	#
+# fsl_regfilt.								#
+
+------------------------------------------------------------------------------
+--------------- Performing regression and producing beta maps ----------------
+------------------------------------------------------------------------------
+
+
+# fsl_regfilt takes the original fMRI dataset (-i), a file with the 	#
+# physio regressors (-d) and ints that refer to the columns within the	#
+# -d file.								#
+
+fsl_regfilt -i <input> -o <out_file_name> -d <timeseries to be regressed> -f "1"
+
+# 3dDeconvolve now takes the average timeseries of the premotor ROI, as #
+# well as the filtered dataset output by fsl_regfilt. The calculations	#
+# give voxelwise maps of the Beta values, and the sqrt(beta) values.	#
+
+3dDeconvolve -num_stimts 1 -stim_file 1 <premotor TS> -input <filtered dataset> -bucket bucket_<filtered dataset> -overwrite -polort 0 
+
+3dcalc -a bucket_$1'[1]' -expr 'a' -prefix coeff_$1 -overwrite
+
+3dcalc -a coeff_$1 -expr 'sqrt(a)' -prefix sqrt_coeff_coeff_$1 -overwrite
+
